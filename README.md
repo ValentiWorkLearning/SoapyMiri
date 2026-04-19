@@ -9,6 +9,29 @@ For other distributions, clone and compile manually:
     cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
     cmake --build build --parallel
 
+
+## Usage with SDR++
+
+1. Check whether the SDR driver is visible after the build
+```shell
+export SOAPY_SDR_PLUGIN_PATH=${PWD}/build/
+SoapySDRUtil --info
+```
+There should be soapyMiri-dev factory available in the utility log:
+```
+Available factories... rtlsdr, soapyMiri-dev
+```
+
+2. Rebuild SDR++ with Soapy driver support or take the prebuilt.
+Unfortunately, for MacOS by default it's disabled.
+
+Prebuilt version of it with the Soapy driver is available as well:
+https://github.com/ValentiWorkLearning/SDRPlusPlus
+
+So, when you've managed to build SDR++ with Soapy driver support, then simply run:
+```export SOAPY_SDR_PLUGIN_PATH=...location of the build directory for SoapyMiri plugin```
+and launch SDR++ from the shell.
+
 ## Dependencies
 
 ### Libmirisdr
