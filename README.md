@@ -3,12 +3,20 @@
 
 For Arch Linux, there's a package in the AUR: https://aur.archlinux.org/packages/soapymiri-git
 
-For other distributions, clone and compile manually:
 
-    cd SoapyMiri
-    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-    cmake --build build --parallel
+For MacOS, the Soapy related stuff has to be installed from brew:
 
+```shell
+brew install soapysdr
+```
+
+For Linux/MacOs the following steps should be performed:
+
+```shell
+cd SoapyMiri
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
 
 ## Usage with SDR++
 
