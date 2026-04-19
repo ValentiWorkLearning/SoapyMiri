@@ -47,7 +47,7 @@ include(FetchContent)
 FetchContent_Declare(
     libmirisdr
     GIT_REPOSITORY https://github.com/ValentiWorkLearning/libmirisdr-6.git
-    GIT_TAG vkorniienko/improve/support-for-fetch-content-installation
+    GIT_TAG master
 )
 
 
