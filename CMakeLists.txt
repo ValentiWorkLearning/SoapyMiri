@@ -66,3 +66,9 @@ SOAPY_SDR_MODULE_UTIL(
         mirisdr::mirisdr_static
         PkgConfig::libusb
 )
+
+# Rename the output to avoid conflicts with system installation
+set_target_properties(soapyMiriSupport PROPERTIES
+    OUTPUT_NAME "soapyMiriSupport-dev"
+    PREFIX ""
+)
