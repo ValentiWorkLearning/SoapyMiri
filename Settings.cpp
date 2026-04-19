@@ -1,5 +1,5 @@
 #include "SoapyMiri.hpp"
-
+#include "ignore_unused_util.hpp"
 /*******************************************************************
  * Identification API
  ******************************************************************/
@@ -63,6 +63,7 @@ size_t SoapyMiri::getNumChannels(const int dir) const {
 }
 
 bool SoapyMiri::getFullDuplex(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return false;
 }
 
@@ -71,18 +72,21 @@ bool SoapyMiri::getFullDuplex(const int direction, const size_t channel) const {
  ******************************************************************/
 
 std::vector<std::string> SoapyMiri::listAntennas(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     std::vector<std::string> antennas;
     antennas.push_back(getAntenna(direction, channel));
     return antennas;
 }
 
 void SoapyMiri::setAntenna(const int direction, const size_t channel, const std::string &name) {
+    ignore_unused(direction, channel, name);
     if (direction != SOAPY_SDR_RX) {
         throw std::runtime_error("setAntenna failed: libmirisdr only supports RX.");
     }
 }
 
 std::string SoapyMiri::getAntenna(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return "RX";
 }
 
@@ -91,19 +95,23 @@ std::string SoapyMiri::getAntenna(const int direction, const size_t channel) con
  ******************************************************************/
 
 bool SoapyMiri::hasDCOffsetMode(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return false;
 }
 
 bool SoapyMiri::hasFrequencyCorrection(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return false;
 }
 
 void SoapyMiri::setFrequencyCorrection(const int direction, const size_t channel, const double value) {
+    ignore_unused(direction, channel);
     SoapySDR_logf(SOAPY_SDR_DEBUG, "Frequency correction is not implemented yet in LibMiriSDR! Tried to set to %f.",
                   value);
 }
 
 double SoapyMiri::getFrequencyCorrection(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return 0;
 }
 
@@ -112,6 +120,7 @@ double SoapyMiri::getFrequencyCorrection(const int direction, const size_t chann
  ******************************************************************/
 
 std::vector<std::string> SoapyMiri::listGains(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     std::vector<std::string> gains;
     gains.emplace_back("Automatic");
     gains.emplace_back("LNA");
@@ -122,10 +131,12 @@ std::vector<std::string> SoapyMiri::listGains(const int direction, const size_t 
 }
 
 bool SoapyMiri::hasGainMode(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return true;
 }
 
 void SoapyMiri::setGainMode(const int direction, const size_t channel, const bool automatic) {
+    ignore_unused(direction, channel);
     if (!dev)
         return;
 
@@ -136,6 +147,7 @@ void SoapyMiri::setGainMode(const int direction, const size_t channel, const boo
 }
 
 bool SoapyMiri::getGainMode(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     if (!dev)
         return false;
 
@@ -143,6 +155,7 @@ bool SoapyMiri::getGainMode(const int direction, const size_t channel) const {
 }
 
 void SoapyMiri::setGain(const int direction, const size_t channel, const double value) {
+    ignore_unused(direction, channel);
     if (!dev)
         return;
 
@@ -150,6 +163,7 @@ void SoapyMiri::setGain(const int direction, const size_t channel, const double 
 }
 
 void SoapyMiri::setGain(const int direction, const size_t channel, const std::string &name, const double value) {
+    ignore_unused(direction, channel);
     if (!dev)
         return;
 
@@ -169,6 +183,7 @@ void SoapyMiri::setGain(const int direction, const size_t channel, const std::st
 }
 
 double SoapyMiri::getGain(const int direction, const size_t channel, const std::string &name) const {
+    ignore_unused(direction, channel);
     if (!dev)
         return 0.0;
 
@@ -188,6 +203,7 @@ double SoapyMiri::getGain(const int direction, const size_t channel, const std::
 }
 
 SoapySDR::Range SoapyMiri::getGainRange(const int direction, const size_t channel, const std::string &name) const {
+    ignore_unused(direction, channel);
     if (!dev)
         return {};
 
@@ -223,6 +239,7 @@ void SoapyMiri::setFrequency(
         const double frequency,
         const SoapySDR::Kwargs &args
 ) {
+    ignore_unused(direction, channel, name, args);
     if (!dev)
         return;
 
@@ -235,6 +252,7 @@ void SoapyMiri::setFrequency(
 }
 
 double SoapyMiri::getFrequency(const int direction, const size_t channel, const std::string &name) const {
+    ignore_unused(direction, channel, name);
     if (!dev)
         return 0;
 
@@ -246,6 +264,7 @@ double SoapyMiri::getFrequency(const int direction, const size_t channel, const 
 }
 
 std::vector<std::string> SoapyMiri::listFrequencies(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     std::vector<std::string> names;
     names.push_back("RF");
     return names;
@@ -255,7 +274,7 @@ SoapySDR::RangeList SoapyMiri::getFrequencyRange(
         const int direction,
         const size_t channel,
         const std::string &name) const {
-
+    ignore_unused(direction, channel, name);
     SoapySDR::RangeList results;
 
     if (name == "RF") {
@@ -265,6 +284,7 @@ SoapySDR::RangeList SoapyMiri::getFrequencyRange(
 }
 
 SoapySDR::ArgInfoList SoapyMiri::getFrequencyArgsInfo(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     SoapySDR::ArgInfoList freqArgs;
 
     // TODO: frequency arguments
@@ -277,6 +297,7 @@ SoapySDR::ArgInfoList SoapyMiri::getFrequencyArgsInfo(const int direction, const
  ******************************************************************/
 
 void SoapyMiri::setSampleRate(const int direction, const size_t channel, const double rate) {
+    ignore_unused(direction, channel);
     if (!dev)
         return;
 
@@ -290,6 +311,7 @@ void SoapyMiri::setSampleRate(const int direction, const size_t channel, const d
 }
 
 double SoapyMiri::getSampleRate(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     if (!dev)
         return 0;
 
@@ -298,6 +320,7 @@ double SoapyMiri::getSampleRate(const int direction, const size_t channel) const
 }
 
 std::vector<double> SoapyMiri::listSampleRates(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     // TODO: listSampleRates is supposedly deprecated and replaced by getSampleRateRange?
 
     std::vector<double> results;
@@ -328,6 +351,7 @@ SoapySDR::RangeList SoapyMiri::getSampleRateRange(const int direction, const siz
 }
 
 void SoapyMiri::setBandwidth(const int direction, const size_t channel, const double bw) {
+    ignore_unused(direction, channel);
     if (!dev)
         return;
 
@@ -337,6 +361,7 @@ void SoapyMiri::setBandwidth(const int direction, const size_t channel, const do
 }
 
 double SoapyMiri::getBandwidth(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     if (!dev)
         return 0;
 
@@ -344,6 +369,7 @@ double SoapyMiri::getBandwidth(const int direction, const size_t channel) const 
 }
 
 std::vector<double> SoapyMiri::listBandwidths(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     // TODO: listBandwidths is supposedly deprecated and replaced by getBandwidthRange?
 
     std::vector<double> results;

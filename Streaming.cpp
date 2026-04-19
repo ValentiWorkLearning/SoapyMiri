@@ -2,8 +2,10 @@
 #include <SoapySDR/Logger.hpp>
 #include <SoapySDR/Formats.hpp>
 #include <cstring>
+#include "ignore_unused_util.hpp"
 
 std::vector<std::string> SoapyMiri::getStreamFormats(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     return {
         SOAPY_SDR_CS16,
         SOAPY_SDR_CF32,
@@ -11,11 +13,13 @@ std::vector<std::string> SoapyMiri::getStreamFormats(const int direction, const 
 }
 
 std::string SoapyMiri::getNativeStreamFormat(const int direction, const size_t channel, double &fullScale) const {
+    ignore_unused(direction, channel);
     fullScale = 1 << 16;
     return SOAPY_SDR_CS16;
 }
 
 SoapySDR::ArgInfoList SoapyMiri::getStreamArgsInfo(const int direction, const size_t channel) const {
+    ignore_unused(direction, channel);
     SoapySDR::ArgInfoList streamArgs;
 
     SoapySDR::ArgInfo bufflenArg;
@@ -167,6 +171,7 @@ void SoapyMiri::closeStream(SoapySDR::Stream *stream) {
 }
 
 size_t SoapyMiri::getStreamMTU(SoapySDR::Stream *stream) const {
+    ignore_unused(stream);
     return optBufferLength / BYTES_PER_SAMPLE;
 }
 
@@ -176,6 +181,7 @@ int SoapyMiri::activateStream(
         const long long timeNs,
         const size_t numElems
 ) {
+    ignore_unused(stream, flags, timeNs, numElems);
     if (!dev)
         return 0;
 
@@ -191,6 +197,8 @@ int SoapyMiri::activateStream(
 }
 
 int SoapyMiri::deactivateStream(SoapySDR::Stream *stream, const int flags, const long long timeNs) {
+    ignore_unused(stream, flags, timeNs);
+
     if (!dev)
         return 0;
 
@@ -260,10 +268,12 @@ int SoapyMiri::readStream(
  ******************************************************************/
 
 size_t SoapyMiri::getNumDirectAccessBuffers(SoapySDR::Stream *stream) {
+    ignore_unused(stream);
     return buffs.size();
 }
 
 int SoapyMiri::getDirectAccessBufferAddrs(SoapySDR::Stream *stream, const size_t handle, void **outBuffs) {
+    ignore_unused(stream);
     outBuffs[0] = (void *) buffs[handle].data.data();
     return 0;
 }
@@ -276,6 +286,7 @@ int SoapyMiri::acquireReadBuffer(
         long long &timeNs,
         const long timeoutUs
 ) {
+    ignore_unused(stream, flags, timeNs);
     // reset is issued by various settings to drain old data out of the queue
     if (resetBuffer) {
         // drain all buffers from the fifo
@@ -313,6 +324,7 @@ int SoapyMiri::acquireReadBuffer(
 }
 
 void SoapyMiri::releaseReadBuffer(SoapySDR::Stream *stream, const size_t handle) {
+    ignore_unused(stream, handle);
     //TODO this wont handle out of order releases
     _buf_count--;
 }

@@ -6,11 +6,8 @@ For Arch Linux, there's a package in the AUR: https://aur.archlinux.org/packages
 For other distributions, clone and compile manually:
 
     cd SoapyMiri
-    mkdir build
-    cd build
-    cmake ..
-    make -j4
-    make install
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build --parallel
 
 ## Dependencies
 

@@ -3,7 +3,7 @@
 ########################################################################
 cmake_minimum_required(VERSION 3.8)
 
-project(SoapyMiri CXX)
+project(SoapyMiri C CXX)
 
 find_package(SoapySDR "0.4.0" NO_MODULE REQUIRED)
 if (NOT SoapySDR_FOUND)
@@ -11,14 +11,6 @@ if (NOT SoapySDR_FOUND)
 endif ()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
-
-find_package(LibMiriSDR)
-if (NOT LIBMIRISDR_FOUND)
-    message(FATAL_ERROR "libmirisdr API not found...")
-endif ()
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${LIBMIRISDR_INCLUDE_DIRS})
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -47,6 +39,22 @@ if (APPLE)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wc++11-extensions")
 endif (APPLE)
 
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
+find_package(Threads REQUIRED)
+
+include(FetchContent)
+FetchContent_Declare(
+    libmirisdr
+    GIT_REPOSITORY https://github.com/ValentiWorkLearning/libmirisdr-6.git
+    GIT_TAG vkorniienko/improve/support-for-fetch-content-installation
+)
+
+
+FetchContent_MakeAvailable(libmirisdr)
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
 SOAPY_SDR_MODULE_UTIL(
     TARGET soapyMiriSupport
     SOURCES
@@ -55,5 +63,6 @@ SOAPY_SDR_MODULE_UTIL(
         Settings.cpp
         Streaming.cpp
     LIBRARIES
-        ${LIBMIRISDR_LIBRARIES}
+        mirisdr::mirisdr_static
+        PkgConfig::libusb
 )
