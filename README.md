@@ -32,6 +32,32 @@ So, when you've managed to build SDR++ with Soapy driver support, then simply ru
 ```export SOAPY_SDR_PLUGIN_PATH=...location of the build directory for SoapyMiri plugin```
 and launch SDR++ from the shell.
 
+Another option is to add symlink to the built plugin into the soapy plugins. If Soapy was installed via brew, the following location contains all of the plugins:
+```log
+/opt/homebrew/lib/SoapySDR/modules0.8/
+```
+So simply add a symlink:
+```sh
+ln -s ${PWD}/build/soapyMiriSupport-dev.so /opt/homebrew/lib/SoapySDR/modules0.8/soapyMiriSupport-dev.so
+```
+
+Verify that the soapy can find the newely added driver:
+```shell
+SoapySDRUtil --info
+######################################################
+##     Soapy SDR -- the SDR abstraction library     ##
+######################################################
+
+Lib Version: v0.8.1-release
+API Version: v0.8.0
+ABI Version: v0.8
+Install root: /opt/homebrew
+Search path:  /opt/homebrew/lib/SoapySDR/modules0.8
+Module found: /opt/homebrew/lib/SoapySDR/modules0.8/librtlsdrSupport.so     (0.3.3)
+Module found: /opt/homebrew/lib/SoapySDR/modules0.8/soapyMiriSupport-dev.so (48e3b31)
+```
+
+
 ## Dependencies
 
 ### Libmirisdr
