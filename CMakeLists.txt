@@ -1,7 +1,7 @@
 ########################################################################
 # Build Soapy SDR support module for libmirisdr
 ########################################################################
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10...3.27)
 
 project(SoapyMiri C CXX)
 
