@@ -47,11 +47,24 @@ include(FetchContent)
 FetchContent_Declare(
     libmirisdr
     GIT_REPOSITORY https://github.com/ValentiWorkLearning/libmirisdr-6.git
-    GIT_TAG master
+    GIT_TAG vkorniienko/improve/crashes-fixup
 )
 
 
 FetchContent_MakeAvailable(libmirisdr)
+
+FetchContent_Declare(
+    moodycamel
+    GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git
+    GIT_TAG master
+)
+
+FetchContent_MakeAvailable(moodycamel)
+
+add_library(moodycamel INTERFACE)
+target_include_directories(moodycamel INTERFACE
+    ${moodycamel_SOURCE_DIR}
+)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -65,6 +78,7 @@ SOAPY_SDR_MODULE_UTIL(
     LIBRARIES
         mirisdr::mirisdr_static
         PkgConfig::libusb
+        moodycamel
 )
 
 # Rename the output to avoid conflicts with system installation
