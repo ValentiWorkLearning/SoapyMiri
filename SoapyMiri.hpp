@@ -11,7 +11,7 @@
 #include <blockingconcurrentqueue.h>
 
 #define DEFAULT_BUFFER_LENGTH (2304 * 8 * 2)
-#define DEFAULT_NUM_BUFFERS 300
+#define DEFAULT_NUM_BUFFERS 350
 #define BYTES_PER_SAMPLE 2
 
 typedef enum miriSampleFormat {

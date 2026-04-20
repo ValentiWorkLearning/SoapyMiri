@@ -5,6 +5,9 @@
 #include <chrono>
 #include <stdexcept>
 #include "ignore_unused_util.hpp"
+#include <pthread.h>
+#include <pthread/qos.h>
+
 
 std::vector<std::string> SoapyMiri::getStreamFormats(const int direction, const size_t channel) const {
     ignore_unused(direction, channel);
@@ -64,6 +67,8 @@ static void _rx_callback(unsigned char *buf, uint32_t len, void *ctx) {
 }
 
 void SoapyMiri::rx_async_operation() {
+    pthread_set_qos_class_self_np(
+        QOS_CLASS_USER_INTERACTIVE, 0);
     mirisdr_read_async(dev, &_rx_callback, this, optNumBuffers, optBufferLength);
 }
 
@@ -72,18 +77,32 @@ void SoapyMiri::rx_callback(unsigned char *buf, uint32_t len) {
         return;
     }
 
-    // We preallocate fixed-size buffers of optBufferLength bytes.
-    // If the device ever returns a different size, clamp or drop.
     if (len > static_cast<uint32_t>(optBufferLength)) {
         overflowEvent_.store(true, std::memory_order_release);
+        SoapySDR::log(SOAPY_SDR_WARNING,
+                          "RX rx_callback:  len > optBufferLength");
         return;
     }
 
     size_t slot = 0;
+
+    // Fast path: get a free buffer.
     if (!freeQueue_.try_dequeue(slot)) {
-        // No free buffers available => consumer is too slow.
+        // No free buffer -> consumer is behind.
+        // Drop the oldest queued filled buffer and reuse it.
+        size_t droppedSlot = 0;
+        if (filledQueue_.try_dequeue(droppedSlot)) {
+            rxBuffers_[droppedSlot].validElems = 0;
+            freeQueue_.enqueue(droppedSlot);
+        }
+
+        if (!freeQueue_.try_dequeue(slot)) {
+            // Extremely congested case: just drop this callback frame.
+            overflowEvent_.store(true, std::memory_order_release);
+            return;
+        }
+
         overflowEvent_.store(true, std::memory_order_release);
-        return;
     }
 
     auto &dst = rxBuffers_[slot];
@@ -95,12 +114,18 @@ void SoapyMiri::rx_callback(unsigned char *buf, uint32_t len) {
 
 void SoapyMiri::resetQueues() {
     size_t slot = 0;
+
     while (filledQueue_.try_dequeue(slot)) {
         rxBuffers_[slot].validElems = 0;
         freeQueue_.enqueue(slot);
     }
 
-    currentReadHandle_ = static_cast<size_t>(-1);
+    if (currentReadHandle_ != static_cast<size_t>(-1)) {
+        rxBuffers_[currentReadHandle_].validElems = 0;
+        freeQueue_.enqueue(currentReadHandle_);
+        currentReadHandle_ = static_cast<size_t>(-1);
+    }
+
     currentReadPtr_ = nullptr;
     remainingElems_ = 0;
 }
@@ -234,6 +259,8 @@ int SoapyMiri::deactivateStream(SoapySDR::Stream *stream, const int flags, const
     stopRequested_.store(true, std::memory_order_release);
 
     if (_rx_async_thread.joinable()) {
+        SoapySDR::log(SOAPY_SDR_WARNING,
+                          "RX overflow: calling mirisdr_cancel_async");
         mirisdr_cancel_async(dev);
         _rx_async_thread.join();
     }
@@ -250,10 +277,11 @@ int SoapyMiri::readStream(
         long long &timeNs,
         const long timeoutUs
 ) {
-    ignore_unused(stream, timeNs);
+    ignore_unused(stream, timeNs, timeoutUs);
 
     if (readInProgress_.test_and_set(std::memory_order_acquire)) {
-        SoapySDR::log(SOAPY_SDR_ERROR, "Concurrent readStream() is not supported");
+        SoapySDR::log(SOAPY_SDR_ERROR,
+                      "Concurrent readStream() is not supported");
         return SOAPY_SDR_STREAM_ERROR;
     }
 
@@ -270,25 +298,21 @@ int SoapyMiri::readStream(
         }
 
         if (resetRequested_.exchange(false, std::memory_order_acq_rel)) {
-            if (remainingElems_ != 0 && currentReadHandle_ != static_cast<size_t>(-1)) {
-                rxBuffers_[currentReadHandle_].validElems = 0;
-                freeQueue_.enqueue(currentReadHandle_);
-            }
             resetQueues();
         }
 
+        // Non-fatal overflow: keep streaming, only warn once.
         if (overflowEvent_.exchange(false, std::memory_order_acq_rel)) {
-            resetQueues();
-            SoapySDR::log(SOAPY_SDR_SSI, "OVERFLOW in SoapyMiri::readStream, dropping queued buffers");
-            clearGuard();
-            return SOAPY_SDR_OVERFLOW;
+            SoapySDR::log(SOAPY_SDR_WARNING,
+                          "RX overflow: dropped stale samples, continuing");
         }
 
+        // Need a new packet
         if (remainingElems_ == 0) {
             size_t handle = 0;
-            const auto timeout = std::chrono::microseconds(timeoutUs > 0 ? timeoutUs : 0);
 
-            if (!filledQueue_.wait_dequeue_timed(handle, timeout)) {
+            // If queue empty: simply report no data now.
+            if (!filledQueue_.try_dequeue(handle)) {
                 clearGuard();
                 return SOAPY_SDR_TIMEOUT;
             }
@@ -296,20 +320,43 @@ int SoapyMiri::readStream(
             currentReadHandle_ = handle;
             currentReadPtr_ = rxBuffers_[handle].data.data();
             remainingElems_ = rxBuffers_[handle].validElems;
+
+            // Defensive: empty packet
+            if (remainingElems_ == 0) {
+                rxBuffers_[currentReadHandle_].validElems = 0;
+                freeQueue_.enqueue(currentReadHandle_);
+                currentReadHandle_ = static_cast<size_t>(-1);
+                currentReadPtr_ = nullptr;
+
+                clearGuard();
+                return 0;
+            }
         }
 
-        const size_t returnedElems = std::min(remainingElems_, numElems);
+        const size_t returnedElems =
+            std::min(remainingElems_, numElems);
+
         void *buff0 = buffs[0];
 
         if (sampleFormat == MIRI_FORMAT_CS16) {
-            std::memcpy(buff0, currentReadPtr_, returnedElems * 2 * sizeof(int16_t));
-        } else if (sampleFormat == MIRI_FORMAT_CF32) {
+            std::memcpy(buff0,
+                        currentReadPtr_,
+                        returnedElems * 2 * sizeof(int16_t));
+        }
+        else if (sampleFormat == MIRI_FORMAT_CF32) {
             float *ftarget = static_cast<float *>(buff0);
+
             for (size_t i = 0; i < returnedElems; ++i) {
-                ftarget[i * 2 + 0] = static_cast<float>(currentReadPtr_[i * 2 + 0]) * (1.0f / 32768.0f);
-                ftarget[i * 2 + 1] = static_cast<float>(currentReadPtr_[i * 2 + 1]) * (1.0f / 32768.0f);
+                ftarget[i * 2 + 0] =
+                    static_cast<float>(currentReadPtr_[i * 2 + 0]) *
+                    (1.0f / 32768.0f);
+
+                ftarget[i * 2 + 1] =
+                    static_cast<float>(currentReadPtr_[i * 2 + 1]) *
+                    (1.0f / 32768.0f);
             }
-        } else {
+        }
+        else {
             clearGuard();
             return SOAPY_SDR_NOT_SUPPORTED;
         }
@@ -319,16 +366,19 @@ int SoapyMiri::readStream(
 
         if (remainingElems_ != 0) {
             flags |= SOAPY_SDR_MORE_FRAGMENTS;
-        } else if (currentReadHandle_ != static_cast<size_t>(-1)) {
+        }
+        else if (currentReadHandle_ != static_cast<size_t>(-1)) {
             rxBuffers_[currentReadHandle_].validElems = 0;
             freeQueue_.enqueue(currentReadHandle_);
+
             currentReadHandle_ = static_cast<size_t>(-1);
             currentReadPtr_ = nullptr;
         }
 
         clearGuard();
         return static_cast<int>(returnedElems);
-    } catch (...) {
+    }
+    catch (...) {
         clearGuard();
         throw;
     }
@@ -374,9 +424,8 @@ int SoapyMiri::acquireReadBuffer(
     }
 
     if (overflowEvent_.exchange(false, std::memory_order_acq_rel)) {
-        resetQueues();
-        SoapySDR::log(SOAPY_SDR_SSI, "OVERFLOW in SoapyMiri::acquireReadBuffer, dropping queued buffers");
-        return SOAPY_SDR_OVERFLOW;
+        SoapySDR::log(SOAPY_SDR_WARNING,
+                      "RX overflow: dropped stale samples, continuing");
     }
 
     const auto timeout = std::chrono::microseconds(timeoutUs > 0 ? timeoutUs : 0);
