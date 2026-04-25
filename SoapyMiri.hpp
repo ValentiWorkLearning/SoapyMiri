@@ -212,6 +212,9 @@ public:
     void rx_callback(unsigned char *buf, uint32_t len);
 
 private:
+    void applyTunerGainHotfix();
+
+private:
 
     struct RxBuffer
     {
@@ -251,5 +254,7 @@ private:
 
     // helper
     void resetQueues();
+
+    int last_automatic_gain_value = 0;
 
 };
