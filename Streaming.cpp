@@ -208,6 +208,9 @@ SoapySDR::Stream *SoapyMiri::setupStream(
         freeQueue_.enqueue(i);
     }
 
+    pthread_set_qos_class_self_np(
+        QOS_CLASS_USER_INTERACTIVE, 0);
+
     return reinterpret_cast<SoapySDR::Stream *>(this);
 }
 
