@@ -8,9 +8,10 @@
 #include <condition_variable>
 #include <atomic>
 #include "mirisdr.h"
+#include <blockingconcurrentqueue.h>
 
 #define DEFAULT_BUFFER_LENGTH (2304 * 8 * 2)
-#define DEFAULT_NUM_BUFFERS 15
+#define DEFAULT_NUM_BUFFERS 350
 #define BYTES_PER_SAMPLE 2
 
 typedef enum miriSampleFormat {
@@ -208,32 +209,52 @@ private:
     mirisdr_hw_flavour_t hwFlavour = MIRISDR_HW_DEFAULT;
 
 public:
-    struct Buffer {
-        unsigned long long tick;
-        std::vector<signed char> data;
-    };
-
-    //async api usage
-    std::thread _rx_async_thread;
-
-    void rx_async_operation(void);
-
     void rx_callback(unsigned char *buf, uint32_t len);
 
-    // driver options
-    size_t optNumBuffers;
-    size_t optBufferLength;
+private:
+    void applyTunerGainHotfix();
 
-    std::vector<Buffer> buffs;
-    size_t _buf_head;
-    size_t _buf_tail;
-    std::atomic<size_t> _buf_count;
-    int16_t *_currentBuff;
-    std::atomic<bool> _overflowEvent;
-    size_t _currentHandle;
-    size_t remainingElems;
-    std::atomic<bool> resetBuffer;
-    std::mutex _buf_mutex;
-    std::condition_variable _buf_cond;
+private:
+
+    struct RxBuffer
+    {
+        std::vector<int16_t> data;   // fixed capacity, fixed size after setup
+        size_t validElems = 0;       // number of IQ elements currently valid
+    };
+
+    void rx_async_operation();
+
+    // preallocated buffers
+    std::vector<RxBuffer> rxBuffers_;
+
+    // indices into rxBuffers_
+    moodycamel::BlockingConcurrentQueue<size_t> freeQueue_;
+    moodycamel::BlockingConcurrentQueue<size_t> filledQueue_;
+
+    // async thread
+    std::thread _rx_async_thread;
+
+    // stream/config state
+    int optBufferLength = DEFAULT_BUFFER_LENGTH;
+    int optNumBuffers = DEFAULT_NUM_BUFFERS;
+
+    // runtime state
+    std::atomic<bool> streamActive_{false};
+    std::atomic<bool> stopRequested_{false};
+    std::atomic<bool> resetRequested_{false};
+    std::atomic<bool> overflowEvent_{false};
+
+    // current fragment state for readStream()
+    size_t currentReadHandle_ = static_cast<size_t>(-1);
+    const int16_t *currentReadPtr_ = nullptr;
+    size_t remainingElems_ = 0;
+
+    // optional: detect misuse if multiple readers call readStream simultaneously
+    std::atomic_flag readInProgress_ = ATOMIC_FLAG_INIT;
+
+    // helper
+    void resetQueues();
+
+    int last_automatic_gain_value = 0;
 
 };
