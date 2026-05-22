@@ -21,9 +21,15 @@ SoapyMiri::SoapyMiri(const SoapySDR::Kwargs &args) :
     deviceIdx = (uint32_t) std::stoi(args.at("index"));
 
     SoapySDR_logf(SOAPY_SDR_DEBUG, "LibMiriSDR opening device %d", deviceIdx);
+#ifdef WIN32
+    if (mirisdr_open(&dev, deviceIdx, MIRISDR_TRANSFER_BULK) != 0) {
+        throw std::runtime_error("Unable to open LibMiriSDR device.");
+    }
+#else
     if (mirisdr_open(&dev, deviceIdx, MIRISDR_TRANSFER_ISOC) != 0) {
         throw std::runtime_error("Unable to open LibMiriSDR device.");
     }
+#endif 
 }
 
 SoapyMiri::~SoapyMiri(void) {
