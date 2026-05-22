@@ -6,8 +6,8 @@
 
 SoapyMiri::SoapyMiri(const SoapySDR::Kwargs &args) :
         dev(nullptr),
-        remainingElems(0),
-        resetBuffer(false) {
+        remainingElems_(0)
+    {
     if (args.count("label") != 0) {
         SoapySDR_logf(SOAPY_SDR_INFO, "Opening %s...", args.at("label").c_str());
     }
@@ -21,7 +21,7 @@ SoapyMiri::SoapyMiri(const SoapySDR::Kwargs &args) :
     deviceIdx = (uint32_t) std::stoi(args.at("index"));
 
     SoapySDR_logf(SOAPY_SDR_DEBUG, "LibMiriSDR opening device %d", deviceIdx);
-    if (mirisdr_open(&dev, deviceIdx) != 0) {
+    if (mirisdr_open(&dev, deviceIdx, MIRISDR_TRANSFER_ISOC) != 0) {
         throw std::runtime_error("Unable to open LibMiriSDR device.");
     }
 }
@@ -48,7 +48,7 @@ std::string SoapyMiri::getHardwareKey(void) const {
 SoapySDR::Kwargs SoapyMiri::getHardwareInfo(void) const {
     SoapySDR::Kwargs args;
 
-    args["origin"] = "https://github.com/ericek111/SoapyMiri";
+    args["origin"] = "https://github.com/ValentiWorkLearning/SoapyMiri.git";
     args["index"] = std::to_string(deviceIdx);
 
     return args;
@@ -159,6 +159,7 @@ void SoapyMiri::setGain(const int direction, const size_t channel, const double 
     if (!dev)
         return;
 
+    SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting gain value: %f", value);
     setGain(direction, channel, "Automatic", value);
 }
 
@@ -168,15 +169,25 @@ void SoapyMiri::setGain(const int direction, const size_t channel, const std::st
         return;
 
     if (name == "Automatic") {
+        last_automatic_gain_value = (int) value;
         mirisdr_set_tuner_gain(dev, (int) value);
+        SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting automatic gain: %d", (int) value);
     } else if (name == "LNA") {
         mirisdr_set_lna_gain(dev, (int) value);
+        SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting LNA gain: %d", (int) value);
+        applyTunerGainHotfix();
     } else if (name == "Baseband") {
         mirisdr_set_baseband_gain(dev, (int) value);
+        SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting baseband gain: %d", (int) value);
+        applyTunerGainHotfix();
     } else if (name == "Mixer") {
         mirisdr_set_mixer_gain(dev, (int) value);
+        SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting mixer gain: %d", (int) value);
+        applyTunerGainHotfix();
     } else if (name == "Mixbuffer") {
         mirisdr_set_mixbuffer_gain(dev, (int) value);
+        SoapySDR_logf(SOAPY_SDR_DEBUG, "Setting mixbuffer gain: %d", (int) value);
+        applyTunerGainHotfix();
     } else {
         SoapySDR_logf(SOAPY_SDR_WARNING, "Trying to set non-existent gain '%s' to %f!", name.c_str(), value);
     }
@@ -486,4 +497,13 @@ std::string SoapyMiri::readSetting(const std::string &key) const {
 
     SoapySDR_logf(SOAPY_SDR_WARNING, "Unknown setting '%s'", key.c_str());
     return "";
+}
+
+void SoapyMiri::applyTunerGainHotfix() {
+    // This is a workaround for a quirk in the MiriSDR firmware where changing LNA or baseband gain resets the tuner gain to 0.
+    // So we just re-apply the last set tuner gain value whenever that happens.
+    if (!dev)
+        return;
+
+    mirisdr_set_tuner_gain(dev, last_automatic_gain_value);
 }

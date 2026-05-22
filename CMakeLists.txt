@@ -1,7 +1,7 @@
 ########################################################################
 # Build Soapy SDR support module for libmirisdr
 ########################################################################
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.10...3.27)
 
 project(SoapyMiri C CXX)
 
@@ -47,11 +47,38 @@ include(FetchContent)
 FetchContent_Declare(
     libmirisdr
     GIT_REPOSITORY https://github.com/ValentiWorkLearning/libmirisdr-6.git
-    GIT_TAG master
+    GIT_TAG vkorniienko/improve/crashes-fixup
 )
 
 
 FetchContent_MakeAvailable(libmirisdr)
+
+FetchContent_Declare(
+    moodycamel
+    GIT_REPOSITORY https://github.com/cameron314/concurrentqueue.git
+    GIT_TAG master
+)
+
+FetchContent_MakeAvailable(moodycamel)
+
+FetchContent_Declare(
+    moodycamel_readerwriterqueue
+    GIT_REPOSITORY https://github.com/cameron314/readerwriterqueue.git
+    GIT_TAG master
+)
+
+FetchContent_MakeAvailable(moodycamel_readerwriterqueue)
+
+
+add_library(moodycamel INTERFACE)
+target_include_directories(moodycamel INTERFACE
+    ${moodycamel_SOURCE_DIR}
+)
+
+add_library(moodycamel_readerwriterqueue INTERFACE)
+target_include_directories(moodycamel_readerwriterqueue INTERFACE
+    ${moodycamel_readerwriterqueue_SOURCE_DIR}
+)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -65,6 +92,8 @@ SOAPY_SDR_MODULE_UTIL(
     LIBRARIES
         mirisdr::mirisdr_static
         PkgConfig::libusb
+        moodycamel
+        moodycamel_readerwriterqueue
 )
 
 # Rename the output to avoid conflicts with system installation
