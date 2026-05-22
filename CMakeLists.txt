@@ -5,10 +5,33 @@ cmake_minimum_required(VERSION 3.10...3.27)
 
 project(SoapyMiri C CXX)
 
-find_package(SoapySDR "0.4.0" NO_MODULE REQUIRED)
-if (NOT SoapySDR_FOUND)
-    message(FATAL_ERROR "Soapy SDR development files not found...")
-endif ()
+include(FetchContent)
+
+option(USE_SYSTEM_SOAPYSDR "Use system-installed SoapySDR if available" ON)
+
+if(USE_SYSTEM_SOAPYSDR)
+    find_package(SoapySDR CONFIG QUIET)
+endif()
+
+
+
+if(NOT SoapySDR_FOUND)
+    message(STATUS "SoapySDR not found, fetching with FetchContent")
+
+    FetchContent_Declare(
+        SoapySDR
+        GIT_REPOSITORY https://github.com/pothosware/SoapySDR.git
+        GIT_TAG        soapy-sdr-0.8.1
+    )
+
+    set(ENABLE_TESTS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_DOCS OFF CACHE BOOL "" FORCE)
+    set(ENABLE_PYTHON OFF CACHE BOOL "" FORCE)
+
+    FetchContent_MakeAvailable(SoapySDR)
+else()
+    message(STATUS "Using system SoapySDR")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
@@ -39,19 +62,67 @@ if (APPLE)
    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wc++11-extensions")
 endif (APPLE)
 
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(libusb REQUIRED IMPORTED_TARGET libusb-1.0)
-find_package(Threads REQUIRED)
+find_package(PkgConfig QUIET)
 
+if(PkgConfig_FOUND)
+    pkg_check_modules(libusb QUIET IMPORTED_TARGET libusb-1.0)
+endif()
+
+if(NOT TARGET PkgConfig::libusb)
+    message(STATUS "libusb-1.0 not found via pkg-config, fetching libusb...")
+
+    FetchContent_Declare(
+        libusb
+        GIT_REPOSITORY https://github.com/libusb/libusb-cmake.git
+        GIT_TAG        v1.0.27
+    )
+
+    FetchContent_MakeAvailable(libusb)
+    if(TARGET usb-1.0)
+     message(STATUS "Found libusb target: usb-1.0")
+    elseif(TARGET libusb-1.0)
+        message(STATUS "Found libusb target: libusb-1.0")
+    elseif(TARGET libusb)
+        message(STATUS "Found libusb target: libusb")
+    else()
+        message(FATAL_ERROR "No known libusb target found")
+    endif()
+
+    set(_libusb_include_dir "${libusb_SOURCE_DIR}/libusb/libusb")
+
+    if(NOT EXISTS "${_libusb_include_dir}/libusb.h")
+        message(FATAL_ERROR "libusb.h not found at: ${_libusb_include_dir}")
+    endif()
+
+    set(LIBUSB_FOUND TRUE CACHE BOOL "" FORCE)
+
+    set(LIBUSB_INCLUDE_DIR  "${_libusb_include_dir}" CACHE PATH "" FORCE)
+    set(LIBUSB_INCLUDE_DIRS "${_libusb_include_dir}" CACHE STRING "" FORCE)
+    set(LIBUSB_LIBRARIES    "${_libusb_target}" CACHE STRING "" FORCE)
+
+endif()
+
+set(BUILD_TEST_APPS OFF CACHE BOOL "" FORCE)
+set(LIBMIRISDR_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
 include(FetchContent)
+
 FetchContent_Declare(
     libmirisdr
     GIT_REPOSITORY https://github.com/ValentiWorkLearning/libmirisdr-6.git
-    GIT_TAG vkorniienko/improve/crashes-fixup
+    GIT_TAG vkorniienko/improve/windows-build-fix
 )
 
+FetchContent_GetProperties(libmirisdr)
 
-FetchContent_MakeAvailable(libmirisdr)
+if(NOT libmirisdr_POPULATED)
+    FetchContent_Populate(libmirisdr)
+
+    add_subdirectory(
+        "${libmirisdr_SOURCE_DIR}"
+        "${libmirisdr_BINARY_DIR}"
+        EXCLUDE_FROM_ALL
+    )
+endif()
 
 FetchContent_Declare(
     moodycamel
@@ -82,6 +153,15 @@ target_include_directories(moodycamel_readerwriterqueue INTERFACE
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 
+
+if(TARGET PkgConfig::libusb)
+    set(LIBUSB_TARGET_LIBRARY_PACKAGE  PkgConfig::libusb)
+elseif(TARGET usb-1.0)
+    set(LIBUSB_TARGET_LIBRARY_PACKAGE usb-1.0)
+else()
+    message(FATAL_ERROR "libusb target was not found or created")
+endif()
+
 SOAPY_SDR_MODULE_UTIL(
     TARGET soapyMiriSupport
     SOURCES
@@ -91,7 +171,7 @@ SOAPY_SDR_MODULE_UTIL(
         Streaming.cpp
     LIBRARIES
         mirisdr::mirisdr_static
-        PkgConfig::libusb
+        ${LIBUSB_TARGET_LIBRARY_PACKAGE}
         moodycamel
         moodycamel_readerwriterqueue
 )

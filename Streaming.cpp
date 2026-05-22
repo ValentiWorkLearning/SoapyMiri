@@ -5,9 +5,11 @@
 #include <chrono>
 #include <stdexcept>
 #include "ignore_unused_util.hpp"
-#include <pthread.h>
-#include <pthread/qos.h>
 
+#ifndef WIN32
+    #include <pthread.h>
+    #include <pthread/qos.h>
+#endif
 
 std::vector<std::string> SoapyMiri::getStreamFormats(const int direction, const size_t channel) const {
     ignore_unused(direction, channel);
@@ -67,8 +69,10 @@ static void _rx_callback(unsigned char *buf, uint32_t len, void *ctx) {
 }
 
 void SoapyMiri::rx_async_operation() {
+#ifndef WIN32
     pthread_set_qos_class_self_np(
         QOS_CLASS_USER_INTERACTIVE, 0);
+#endif
     mirisdr_read_async(dev, &_rx_callback, this, optNumBuffers, optBufferLength);
 }
 
@@ -207,10 +211,10 @@ SoapySDR::Stream *SoapyMiri::setupStream(
     for (size_t i = 0; i < rxBuffers_.size(); ++i) {
         freeQueue_.enqueue(i);
     }
-
+#ifndef WIN32
     pthread_set_qos_class_self_np(
         QOS_CLASS_USER_INTERACTIVE, 0);
-
+#endif
     return reinterpret_cast<SoapySDR::Stream *>(this);
 }
 
